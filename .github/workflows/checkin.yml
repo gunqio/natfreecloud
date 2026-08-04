@@ -42,7 +42,7 @@ jobs:
       - name: 安装 Python 依赖
         run: |
           pip install -r requirements.txt
-          python -c "from cloakbrowser import ensure_binary; ensure_binary()"
+          python -c "import seleniumbase; print('SeleniumBase 就绪')"
 
       # ====================== 【私库拉取脚本】 ======================
       - name: 检测私库
@@ -88,7 +88,6 @@ jobs:
           Xvfb :99 -screen 0 1280x720x24 +extension RANDR &
           XVFB_PID=$!
           sleep 3
-          # ⬇️ 修复：不依赖 xdpyinfo，用进程检测
           ps -p $XVFB_PID > /dev/null 2>&1 && echo "Xvfb 就绪 (PID: $XVFB_PID)" || echo "Xvfb 启动异常"
 
           RECORD_PID=""
@@ -104,7 +103,6 @@ jobs:
             echo "⏭️ 录屏已跳过（定时任务默认不录屏）"
           fi
 
-          # 【已修复】从私库目录运行脚本
           timeout 270 python private_repo/nat_sign_pydoll.py || echo "脚本退出码: $?"
 
           echo "=== 截图目录内容 ==="
