@@ -87,8 +87,9 @@ jobs:
         run: |
           Xvfb :99 -screen 0 1280x720x24 +extension RANDR &
           XVFB_PID=$!
-          sleep 2
-          DISPLAY=:99 xdpyinfo > /dev/null 2>&1 && echo "Xvfb 就绪" || echo "Xvfb 启动异常"
+          sleep 3
+          # ⬇️ 修复：不依赖 xdpyinfo，用进程检测
+          ps -p $XVFB_PID > /dev/null 2>&1 && echo "Xvfb 就绪 (PID: $XVFB_PID)" || echo "Xvfb 启动异常"
 
           RECORD_PID=""
           if [ "$ENABLE_RECORDING" = "true" ]; then
