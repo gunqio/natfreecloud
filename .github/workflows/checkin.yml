@@ -54,7 +54,7 @@ jobs:
       - name: 安装 Python 依赖
         run: |
           pip install -r requirements.txt
-          pip install cloakbrowser
+          pip install 'cloakbrowser[geoip]'
           python -c "import cloakbrowser; print('✅ cloakbrowser 就绪')"
           python -c "import ddddocr; print('✅ ddddocr 就绪')"
           python -c "import seleniumbase; print('✅ SeleniumBase 就绪')"
