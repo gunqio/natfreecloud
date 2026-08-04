@@ -1,4 +1,2 @@
-cloakbrowser[geoip]
-playwright
+seleniumbase>=4.30.0
 ddddocr
-Pillow
