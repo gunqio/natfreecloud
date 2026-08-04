@@ -1,3 +1,2 @@
-patchright
-playwright-stealth
+camoufox[geoip]
 ddddocr
