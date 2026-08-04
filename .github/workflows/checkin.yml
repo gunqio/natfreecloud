@@ -28,11 +28,13 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: 缓存 cloakbrowser 资源
+      - name: 缓存 Patchright 浏览器
         uses: actions/cache@v4
         with:
-          path: ~/.cloakbrowser
-          key: cloakbrowser-${{ runner.os }}-v1
+          path: |
+            ~/.cache/ms-playwright
+            ~/.cache/patchright
+          key: patchright-browser-${{ runner.os }}-v1
 
       - name: 安装系统依赖
         run: |
@@ -44,20 +46,19 @@ jobs:
             libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 \
             libxfixes3 libxrandr2 libgbm1 \
             libasound2t64 || sudo apt-get install -y -qq libasound2
-
-      - name: 安装 Windows 字体（cloakbrowser 伪装需要）
-        run: |
+          # 安装 Windows 字体（增强指纹真实性）
           echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" | sudo debconf-set-selections
           sudo apt-get install -y -qq ttf-mscorefonts-installer || true
           fc-cache -f
 
       - name: 安装 Python 依赖
         run: |
-          pip install -r requirements.txt
-          pip install 'cloakbrowser[geoip]'
-          python -c "import cloakbrowser; print('✅ cloakbrowser 就绪')"
+          pip install patchright playwright-stealth ddddocr
+          # 下载 Patchright 浏览器二进制
+          python -m patchright install chromium
+          python -m patchright install-deps chromium || true
+          python -c "import patchright; print('✅ Patchright 就绪')"
           python -c "import ddddocr; print('✅ ddddocr 就绪')"
-          python -c "import seleniumbase; print('✅ SeleniumBase 就绪')"
 
       # ====================== 【私库拉取脚本】 ======================
       - name: 检测私库
@@ -89,6 +90,35 @@ jobs:
           curl -s --max-time 5 --socks5 127.0.0.1:10808 ifconfig.me
           echo ""
 
+      # ====================== 【IP 信誉检测】 ======================
+      - name: 检测出口 IP 信誉
+        run: |
+          echo "==== 出口 IP 信誉检测 ===="
+          EXIT_IP=$(curl -s --max-time 10 --socks5 127.0.0.1:10808 ipinfo.io/json 2>/dev/null || echo '{}')
+          echo "$EXIT_IP" | python3 -m json.tool 2>/dev/null || echo "$EXIT_IP"
+          
+          ORG=$(echo "$EXIT_IP" | python3 -c "import sys,json; print(json.load(sys.stdin).get('org','unknown'))" 2>/dev/null || echo "unknown")
+          CITY=$(echo "$EXIT_IP" | python3 -c "import sys,json; print(json.load(sys.stdin).get('city','unknown'))" 2>/dev/null || echo "unknown")
+          REGION=$(echo "$EXIT_IP" | python3 -c "import sys,json; print(json.load(sys.stdin).get('region','unknown'))" 2>/dev/null || echo "unknown")
+          COUNTRY=$(echo "$EXIT_IP" | python3 -c "import sys,json; print(json.load(sys.stdin).get('country','unknown'))" 2>/dev/null || echo "unknown")
+          
+          echo ""
+          echo "🌐 IP 信息: 组织=$ORG, 城市=$CITY, 地区=$REGION, 国家=$COUNTRY"
+          
+          # 检查是否是数据中心 IP
+          if echo "$ORG" | grep -qiE "azure|amazon|google|digitalocean|ovh|hetzner|alibaba|tencent|linode|vultr|datacenter|hosting|contabo|netcup|scaleway"; then
+            echo ""
+            echo "⚠️ 警告: 出口 IP 属于数据中心 ($ORG)"
+            echo "   Cloudflare Managed Challenge 对数据中心 IP 通过率极低"
+            echo "   如果 CF 挑战反复失败，建议更换住宅代理"
+            echo ""
+            echo "::warning::出口 IP 是数据中心 ($ORG)，CF 挑战可能失败"
+          else
+            echo ""
+            echo "✅ 出口 IP 属于 ISP ($ORG)，信誉较好"
+          fi
+      # =============================================================
+
       - name: 运行脚本
         env:
           USER_EMAIL: ${{ secrets.USER_EMAIL }}
@@ -98,7 +128,6 @@ jobs:
           DISPLAY: ":99"
           LIBGL_ALWAYS_SOFTWARE: "1"
           GALLIUM_DRIVER: "llvmpipe"
-          CLOAKBROWSER_SUPPRESS_FONT_WARNING: "1"
           ENABLE_RECORDING: ${{ github.event.inputs.enable_recording || 'false' }}
         run: |
           Xvfb :99 -screen 0 1280x720x24 +extension RANDR &
@@ -119,7 +148,7 @@ jobs:
             echo "⏭️ 录屏已跳过（定时任务默认不录屏）"
           fi
 
-          timeout 270 python private_repo/nat_sign_pydoll.py || echo "脚本退出码: $?"
+          timeout 330 python private_repo/nat_sign_pydoll.py || echo "脚本退出码: $?"
 
           echo "=== 截图目录内容 ==="
           ls -la ./screenshots/ || echo "截图目录不存在"
